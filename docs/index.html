@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health insurance risk-based pricing model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF0EA; --card:#FAFAF8; --ink:#1B2420; --ink-mute:#5B6058; --ink-faint:#8B9085;
+    --line:#D8DACF; --line-strong:#BFC2B5;
+    --teal:#0F6E56; --teal-light:#E1F5EE; --teal-text:#085041;
+    --amber:#BA7517; --amber-light:#FAEEDA; --amber-text:#633806;
+    --red:#A32D2D; --red-light:#FCEBEB; --red-text:#791F1F;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif; font-size:15px; line-height:1.55;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .wrap{max-width:1080px; margin:0 auto; padding:36px 24px 60px;}
+
+  .hero{margin-bottom:32px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.04em; color:var(--teal-text); text-transform:uppercase; margin-bottom:10px;}
+  h1{font-size:28px; font-weight:600; margin:0 0 10px; letter-spacing:-0.01em;}
+  .lede{color:var(--ink-mute); max-width:680px; margin:0 0 16px; font-size:15px;}
+  .badges{display:flex; gap:10px; flex-wrap:wrap;}
+  .badge{font-family:'IBM Plex Mono',monospace; font-size:12px; background:var(--card); border:0.5px solid var(--line-strong); border-radius:20px; padding:5px 12px; color:var(--ink-mute);}
+
+  .grid{display:grid; grid-template-columns:0.95fr 1.15fr; gap:20px; align-items:start; margin-bottom:24px;}
+  .panel{background:var(--card); border:0.5px solid var(--line-strong); border-radius:var(--radius); padding:24px;}
+  .panel h2{font-size:16px; font-weight:600; margin:0 0 18px;}
+
+  .field{margin-bottom:18px;}
+  .field label{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; font-weight:500; margin-bottom:8px; color:var(--ink);}
+  .value-display{font-family:'IBM Plex Mono',monospace; color:var(--teal-text); font-weight:500;}
+  .flag{font-size:11px; font-weight:400; color:var(--amber-text); background:var(--amber-light); padding:2px 7px; border-radius:10px;}
+
+  input[type=range]{width:100%; -webkit-appearance:none; height:4px; background:var(--line-strong); border-radius:2px; outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--teal); cursor:pointer; border:2px solid var(--card); box-shadow:0 0 0 1px var(--teal);}
+  input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--teal); cursor:pointer; border:2px solid var(--card); box-shadow:0 0 0 1px var(--teal);}
+
+  .band-tag{font-size:11px; color:var(--ink-faint); margin-top:6px;}
+
+  select{width:100%; padding:9px 10px; border:0.5px solid var(--line-strong); border-radius:6px; background:#fff; color:var(--ink); font-family:inherit; font-size:14px;}
+
+  .toggle-field{display:flex; justify-content:space-between; align-items:center;}
+  .toggle-field label{margin-bottom:0;}
+  .toggle{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:500; padding:7px 18px; border-radius:20px; border:0.5px solid var(--line-strong); background:#fff; color:var(--ink-mute); cursor:pointer; min-width:64px;}
+  .toggle.on{background:var(--red-light); color:var(--red-text); border-color:var(--red);}
+
+  hr{border:none; border-top:0.5px solid var(--line); margin:20px 0;}
+
+  .ledger-panel .panel{padding:0;}
+  .ledger{margin-bottom:18px;}
+  .ledger-row{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 0; border-bottom:1px dashed var(--line);}
+  .ledger-row:first-child{padding-top:0;}
+  .row-label{font-size:13.5px; font-weight:500;}
+  .row-sub{display:block; font-size:11.5px; font-weight:400; color:var(--ink-faint); margin-top:2px;}
+  .row-value{font-size:14px; white-space:nowrap; padding-top:1px;}
+  .base-row .row-value{color:var(--ink-mute);}
+  .risk-row .row-label{color:var(--red-text);}
+  .risk-row .row-value{color:var(--red-text);}
+  .total-row{border-bottom:1px solid var(--line-strong); border-top:1px solid var(--line-strong); font-weight:500;}
+  .total-row .row-value{font-weight:500;}
+  .total-row.final{border-bottom:none; background:var(--teal-light); margin:0 -24px; padding:12px 24px; border-radius:0 0 var(--radius) var(--radius);}
+  .total-row.final .row-label, .total-row.final .row-value{color:var(--teal-text); font-weight:600; font-size:15px;}
+
+  .final-premium{display:flex; gap:16px; margin-top:4px;}
+  .final-premium > div{flex:1; background:var(--ink); border-radius:8px; padding:16px 18px;}
+  .final-premium span{display:block; font-size:11px; color:#A8B0A2; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;}
+  .final-premium strong{font-family:'IBM Plex Mono',monospace; font-size:22px; color:#fff; font-weight:500;}
+
+  .ledger-panel{display:flex; flex-direction:column;}
+  .ledger-panel > .panel{display:flex; flex-direction:column;}
+  .ledger-inner-pad{padding:24px;}
+
+  .tabs-panel{padding:0; overflow:hidden;}
+  .tabs{display:flex; border-bottom:0.5px solid var(--line-strong); background:var(--card);}
+  .tab{flex:none; padding:14px 20px; font-family:inherit; font-size:13.5px; font-weight:500; color:var(--ink-mute); background:none; border:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;}
+  .tab.active{color:var(--teal-text); border-bottom-color:var(--teal);}
+  .tab-content{padding:24px;}
+  .tab-content.hidden{display:none;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:left; font-weight:500; font-size:11.5px; text-transform:uppercase; letter-spacing:.02em; color:var(--ink-faint); padding:0 10px 10px 0; border-bottom:1px solid var(--line-strong);}
+  td{padding:9px 10px 9px 0; border-bottom:0.5px solid var(--line);}
+  td.num, th.num{text-align:right; font-family:'IBM Plex Mono',monospace;}
+  .sig-yes{color:var(--teal-text); font-weight:500;}
+  .sig-no{color:var(--ink-faint);}
+  .group-title{font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-faint); margin:22px 0 8px;}
+  .group-title:first-child{margin-top:0;}
+
+  .stat-row{display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap;}
+  .stat{background:var(--bg); border:0.5px solid var(--line); border-radius:8px; padding:12px 16px; min-width:120px;}
+  .stat span{display:block; font-size:11px; color:var(--ink-faint); margin-bottom:4px;}
+  .stat strong{font-family:'IBM Plex Mono',monospace; font-size:18px;}
+
+  .chart-wrap{height:280px; margin-bottom:20px;}
+
+  .meth p{margin:0 0 14px; max-width:680px; color:var(--ink);}
+  .meth h3{font-size:14px; font-weight:600; margin:20px 0 8px;}
+  .meth h3:first-child{margin-top:0;}
+  .callout{background:var(--amber-light); border-radius:8px; padding:14px 16px; font-size:13.5px; color:var(--amber-text); margin:14px 0; max-width:680px;}
+
+  footer{margin-top:28px; font-size:12px; color:var(--ink-faint); text-align:center;}
+
+  @media (max-width:760px){
+    .grid{grid-template-columns:1fr;}
+    .final-premium{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Actuarial pricing model · Gamma GLM, log link</div>
+    <h1>Health insurance risk-based pricing engine</h1>
+    <p class="lede">A severity-style rating model fit on 1,338 real US health insurance policies (age, BMI, dependents, tobacco use, sex, region → annual claims cost). Adjust the underwriting profile and watch the premium rebuild itself, rating factor by rating factor.</p>
+    <div class="badges">
+      <span class="badge">n = 1,338 policies</span>
+      <span class="badge">Pseudo R² = 0.588</span>
+      <span class="badge">MAE = $4,389</span>
+      <span class="badge">Family: Gamma, link: log</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Underwriting profile</h2>
+
+      <div class="field">
+        <label for="age">Age <span class="value-display" id="ageVal">35</span></label>
+        <input type="range" id="age" min="18" max="64" value="35" step="1">
+      </div>
+
+      <div class="field">
+        <label for="bmi">Body mass index <span class="value-display" id="bmiVal">25.0</span></label>
+        <input type="range" id="bmi" min="15" max="50" value="25" step="0.5">
+        <div class="band-tag" id="bmiBand">Normal range</div>
+      </div>
+
+      <div class="field">
+        <label for="children">Dependents <span class="value-display" id="childrenVal">0</span></label>
+        <input type="range" id="children" min="0" max="5" value="0" step="1">
+      </div>
+
+      <div class="field toggle-field">
+        <label>Tobacco use</label>
+        <button class="toggle" id="smokerToggle" data-on="false" onclick="toggleSmoker()">No</button>
+      </div>
+
+      <div class="field">
+        <label>Sex <span class="flag">restricted in some markets</span></label>
+        <select id="sex">
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Geographic rating zone</label>
+        <select id="region">
+          <option value="northeast">Northeast</option>
+          <option value="northwest">Northwest</option>
+          <option value="southeast">Southeast</option>
+          <option value="southwest">Southwest</option>
+        </select>
+      </div>
+
+      <hr>
+
+      <div class="field">
+        <label for="expense">Expense loading <span class="value-display" id="expenseVal">25%</span></label>
+        <input type="range" id="expense" min="10" max="40" value="25" step="1">
+      </div>
+      <div class="field">
+        <label for="profit">Profit margin <span class="value-display" id="profitVal">8%</span></label>
+        <input type="range" id="profit" min="0" max="20" value="8" step="1">
+      </div>
+    </div>
+
+    <div class="ledger-panel">
+      <div class="panel">
+        <div class="ledger-inner-pad">
+          <h2>Premium worksheet</h2>
+          <div class="ledger" id="ledger"></div>
+        </div>
+        <div class="ledger-inner-pad" style="padding-top:0;">
+          <div class="final-premium">
+            <div><span>Annual gross premium</span><strong id="annualPremium" class="mono">$0</strong></div>
+            <div><span>Monthly</span><strong id="monthlyPremium" class="mono">$0</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel tabs-panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="rating" onclick="showTab('rating')">Rating table</button>
+      <button class="tab" data-tab="validation" onclick="showTab('validation')">Model validation</button>
+      <button class="tab" data-tab="methodology" onclick="showTab('methodology')">Methodology &amp; limits</button>
+    </div>
+
+    <div class="tab-content" id="tab-rating"></div>
+
+    <div class="tab-content hidden" id="tab-validation">
+      <div class="stat-row">
+        <div class="stat"><span>Pseudo R²</span><strong>0.588</strong></div>
+        <div class="stat"><span>MAE</span><strong>$4,389</strong></div>
+        <div class="stat"><span>RMSE</span><strong>$7,771</strong></div>
+        <div class="stat"><span>Policies</span><strong>1,338</strong></div>
+      </div>
+      <div class="group-title">Lift chart · actual vs predicted cost by decile</div>
+      <div class="chart-wrap"><canvas id="liftChart"></canvas></div>
+      <div class="group-title">Coefficient significance</div>
+      <table>
+        <thead><tr><th>Rating factor</th><th class="num">Coefficient</th><th class="num">Relativity</th><th class="num">p-value</th><th>Significant</th></tr></thead>
+        <tbody id="coefTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="tab-content hidden meth" id="tab-methodology">
+      <h3>Why a Gamma GLM with a log link</h3>
+      <p>Healthcare costs are strictly positive and right-skewed: most members cost little, a small number cost a lot. A Gamma distribution fits that shape far better than a normal distribution would, and the log link makes every rating factor act multiplicatively, which is exactly how a real rate manual is built: a base rate multiplied by a relativity for each factor.</p>
+
+      <h3>Frequency and severity are combined here</h3>
+      <p>This dataset only has one total annual cost per person, not individual claim records, so this model is effectively a single severity-style cost model rather than a true frequency × severity split. A production pricing team with claims-level data would model utilization (visits or admissions per member) and cost-per-service separately, then multiply them, because the same total cost can come from many small claims or a few large ones, and that distinction matters for deductible design and reinsurance.</p>
+
+      <h3>Regulatory constraints on rating factors</h3>
+      <p>Not every statistically significant factor is legally usable. Under the EU Gender Directive, insurers across the EU cannot price by sex at all. Under the US Affordable Care Act, individual and small-group health plans can only vary premium by age (capped at a 3:1 ratio), tobacco use (capped at 1.5:1), geography, and family size, health status and sex are excluded by law.</p>
+      <div class="callout">That restriction lines up with this model's own results: sex came out statistically insignificant here (p = 0.128) even before any regulation is applied, while age, BMI, dependents, tobacco use, and two of the three regional bands were all significant at p &lt; 0.05.</div>
+
+      <h3>Limitations of this build</h3>
+      <p>The data is a single cross-sectional snapshot of 1,338 people, not multi-year claims experience, so there is no credibility weighting for thin segments and no out-of-sample holdout test, the fit statistics above are in-sample. A production model would validate on a held-out year, monitor actual-to-expected loss ratios by segment over time, and blend small or new segments toward the class average using credibility theory rather than trusting the raw GLM output.</p>
+    </div>
+  </div>
+
+  <footer>Educational pricing model · data: Medical Cost Personal Datasets (1,338 US health insurance policies) · Gamma GLM fit with statsmodels</footer>
+</div>
+
+<script>
+const COEF = {
+  intercept: 7.386337,
+  age: 0.0286379,
+  bmi: 0.0141237,
+  children: 0.0841722,
+  smoker_yes: 1.5003302,
+  sex_male: -0.0570778,
+  region_northwest: -0.0578744,
+  region_southeast: -0.1416371,
+  region_southwest: -0.1454820
+};
+const PVAL = {
+  age:0.000, bmi:0.000, children:0.000, smoker_yes:0.000, sex_male:0.128,
+  region_northwest:0.281, region_southeast:0.009, region_southwest:0.007
+};
+const BASELINE = {age:30, bmi:25, children:0, smoker:false, sex:'female', region:'northeast'};
+const LIFT = [
+  {d:1, actual:3084, predicted:3749},
+  {d:2, actual:4726, predicted:4653},
+  {d:3, actual:5772, predicted:5804},
+  {d:4, actual:6936, predicted:7087},
+  {d:5, actual:8696, predicted:8546},
+  {d:6, actual:11163, predicted:10064},
+  {d:7, actual:12541, predicted:11823},
+  {d:8, actual:15459, predicted:14436},
+  {d:9, actual:27886, predicted:23827},
+  {d:10, actual:36399, predicted:48931}
+];
+
+function regionTerm(region){
+  if(region==='northwest') return COEF.region_northwest;
+  if(region==='southeast') return COEF.region_southeast;
+  if(region==='southwest') return COEF.region_southwest;
+  return 0;
+}
+function linPred(p){
+  return COEF.intercept + COEF.age*p.age + COEF.bmi*p.bmi + COEF.children*p.children
+    + (p.smoker?COEF.smoker_yes:0) + (p.sex==='male'?COEF.sex_male:0) + regionTerm(p.region);
+}
+function predictedCost(p){ return Math.exp(linPred(p)); }
+function bmiBand(bmi){
+  if(bmi<18.5) return 'Underweight';
+  if(bmi<25) return 'Normal range';
+  if(bmi<30) return 'Overweight';
+  return 'Obese';
+}
+function fmtUSD(x){ return '$'+Math.round(x).toLocaleString('en-US'); }
+
+function currentProfile(){
+  return {
+    age:+document.getElementById('age').value,
+    bmi:+document.getElementById('bmi').value,
+    children:+document.getElementById('children').value,
+    smoker:document.getElementById('smokerToggle').dataset.on==='true',
+    sex:document.getElementById('sex').value,
+    region:document.getElementById('region').value
+  };
+}
+
+function animateNumber(id, target){
+  const el = document.getElementById(id);
+  const start = parseFloat((el.textContent||'0').replace(/[^0-9.]/g,'')) || 0;
+  const t0 = performance.now(), dur=350;
+  function step(now){
+    const t = Math.min(1,(now-t0)/dur);
+    const eased = 1-Math.pow(1-t,3);
+    el.textContent = fmtUSD(start+(target-start)*eased);
+    if(t<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function renderAll(){
+  const p = currentProfile();
+  document.getElementById('ageVal').textContent = p.age;
+  document.getElementById('bmiVal').textContent = p.bmi.toFixed(1);
+  document.getElementById('bmiBand').textContent = bmiBand(p.bmi);
+  document.getElementById('childrenVal').textContent = p.children;
+
+  const base = predictedCost(BASELINE);
+  const ageRel = Math.exp(COEF.age*(p.age-BASELINE.age));
+  const bmiRel = Math.exp(COEF.bmi*(p.bmi-BASELINE.bmi));
+  const childRel = Math.exp(COEF.children*p.children);
+  const smokerRel = p.smoker ? Math.exp(COEF.smoker_yes) : 1;
+  const sexRel = p.sex==='male' ? Math.exp(COEF.sex_male) : 1;
+  const regionRel = p.region==='northeast' ? 1 : Math.exp(regionTerm(p.region));
+  const pure = base*ageRel*bmiRel*childRel*smokerRel*sexRel*regionRel;
+
+  const expense = +document.getElementById('expense').value/100;
+  const profit = +document.getElementById('profit').value/100;
+  document.getElementById('expenseVal').textContent = Math.round(expense*100)+'%';
+  document.getElementById('profitVal').textContent = Math.round(profit*100)+'%';
+  const gross = pure/(1-expense-profit);
+
+  const rows = [
+    {label:'Reference cost', sub:'age 30 · BMI 25 · non-smoker · female · northeast', value:fmtUSD(base), cls:'base-row', mult:false},
+    {label:'Age factor', sub:`age ${p.age}`, value:'×'+ageRel.toFixed(3), mult:true},
+    {label:'BMI factor', sub:`BMI ${p.bmi.toFixed(1)} · ${bmiBand(p.bmi)}`, value:'×'+bmiRel.toFixed(3), mult:true},
+    {label:'Dependents factor', sub:`${p.children} dependent${p.children===1?'':'s'}`, value:'×'+childRel.toFixed(3), mult:true},
+    {label:'Tobacco use factor', sub:p.smoker?'smoker':'non-smoker', value:'×'+smokerRel.toFixed(3), mult:true, cls:p.smoker?'risk-row':''},
+    {label:'Sex factor', sub:p.sex+' · restricted in many markets', value:'×'+sexRel.toFixed(3), mult:true},
+    {label:'Region factor', sub:p.region, value:'×'+regionRel.toFixed(3), mult:true}
+  ];
+
+  let html = rows.map(r=>`
+    <div class="ledger-row ${r.cls||''}">
+      <div class="row-label">${r.label}<span class="row-sub">${r.sub}</span></div>
+      <div class="row-value mono">${r.value}</div>
+    </div>`).join('');
+
+  html += `<div class="ledger-row total-row">
+      <div class="row-label">= Pure premium<span class="row-sub">expected annual claims cost</span></div>
+      <div class="row-value mono">${fmtUSD(pure)}</div>
+    </div>`;
+  html += `<div class="ledger-row">
+      <div class="row-label">Expense &amp; profit loading<span class="row-sub">grossed up at ${Math.round(expense*100)}% expense + ${Math.round(profit*100)}% profit</span></div>
+      <div class="row-value mono">÷ ${(1-expense-profit).toFixed(2)}</div>
+    </div>`;
+  html += `<div class="ledger-row total-row final">
+      <div class="row-label">= Gross annual premium</div>
+      <div class="row-value mono">${fmtUSD(gross)}</div>
+    </div>`;
+
+  document.getElementById('ledger').innerHTML = html;
+  animateNumber('annualPremium', gross);
+  animateNumber('monthlyPremium', gross/12);
+}
+
+function toggleSmoker(){
+  const btn = document.getElementById('smokerToggle');
+  const on = btn.dataset.on==='true';
+  btn.dataset.on = (!on).toString();
+  btn.textContent = !on ? 'Yes' : 'No';
+  btn.classList.toggle('on', !on);
+  renderAll();
+}
+
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('hidden', c.id!=='tab-'+name));
+}
+
+function buildRatingTable(){
+  const baseAtAge = a => predictedCost({...BASELINE, age:a});
+  const baseAtBmi = b => predictedCost({...BASELINE, bmi:b});
+  const baseAtChild = c => predictedCost({...BASELINE, children:c});
+  const refCost = predictedCost(BASELINE);
+
+  let html = '';
+  html += '<div class="group-title">Age</div><table><tbody>';
+  [25,35,45,55,64].forEach(a=>{
+    html += `<tr><td>Age ${a}</td><td class="num">${(baseAtAge(a)/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(baseAtAge(a))}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="group-title">Body mass index</div><table><tbody>';
+  [['Underweight',18],['Normal range',22],['Overweight',27],['Obese I',32],['Obese II',37]].forEach(([lab,b])=>{
+    html += `<tr><td>${lab} (BMI ${b})</td><td class="num">${(baseAtBmi(b)/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(baseAtBmi(b))}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="group-title">Dependents</div><table><tbody>';
+  [0,1,2,3,4,5].forEach(c=>{
+    html += `<tr><td>${c} dependent${c===1?'':'s'}</td><td class="num">${(baseAtChild(c)/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(baseAtChild(c))}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="group-title">Tobacco use</div><table><tbody>';
+  [['Non-smoker',false],['Smoker',true]].forEach(([lab,s])=>{
+    const v = predictedCost({...BASELINE, smoker:s});
+    html += `<tr><td>${lab}</td><td class="num">${(v/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(v)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="group-title">Sex <span class="flag" style="margin-left:6px;">restricted in many markets</span></div><table><tbody>';
+  [['Female','female'],['Male','male']].forEach(([lab,s])=>{
+    const v = predictedCost({...BASELINE, sex:s});
+    html += `<tr><td>${lab}</td><td class="num">${(v/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(v)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="group-title">Geographic rating zone</div><table><tbody>';
+  [['Northeast','northeast'],['Northwest','northwest'],['Southeast','southeast'],['Southwest','southwest']].forEach(([lab,r])=>{
+    const v = predictedCost({...BASELINE, region:r});
+    html += `<tr><td>${lab}</td><td class="num">${(v/refCost).toFixed(2)}×</td><td class="num">${fmtUSD(v)}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  document.getElementById('tab-rating').innerHTML = html;
+}
+
+function buildCoefTable(){
+  const rows = [
+    ['Age (per year)', COEF.age, Math.exp(COEF.age), PVAL.age],
+    ['BMI (per unit)', COEF.bmi, Math.exp(COEF.bmi), PVAL.bmi],
+    ['Dependents (per child)', COEF.children, Math.exp(COEF.children), PVAL.children],
+    ['Tobacco use', COEF.smoker_yes, Math.exp(COEF.smoker_yes), PVAL.smoker_yes],
+    ['Sex (male vs female)', COEF.sex_male, Math.exp(COEF.sex_male), PVAL.sex_male],
+    ['Region: Northwest vs NE', COEF.region_northwest, Math.exp(COEF.region_northwest), PVAL.region_northwest],
+    ['Region: Southeast vs NE', COEF.region_southeast, Math.exp(COEF.region_southeast), PVAL.region_southeast],
+    ['Region: Southwest vs NE', COEF.region_southwest, Math.exp(COEF.region_southwest), PVAL.region_southwest]
+  ];
+  const body = rows.map(([label,coef,rel,p])=>{
+    const sig = p < 0.05;
+    return `<tr>
+      <td>${label}</td>
+      <td class="num">${coef.toFixed(4)}</td>
+      <td class="num">${rel.toFixed(3)}×</td>
+      <td class="num">${p < 0.001 ? '<0.001' : p.toFixed(3)}</td>
+      <td class="${sig?'sig-yes':'sig-no'}">${sig?'Yes':'No'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('coefTableBody').innerHTML = body;
+}
+
+function buildLiftChart(){
+  const ctx = document.getElementById('liftChart');
+  new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:LIFT.map(r=>'D'+r.d),
+      datasets:[
+        {label:'Actual avg cost', data:LIFT.map(r=>r.actual), backgroundColor:'#0F6E56'},
+        {label:'Predicted avg cost', data:LIFT.map(r=>r.predicted), backgroundColor:'#BA7517'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{font:{family:'IBM Plex Sans', size:12}}}},
+      scales:{
+        y:{ticks:{callback:v=>'$'+v.toLocaleString(), font:{family:'IBM Plex Mono', size:11}}, grid:{color:'#D8DACF'}},
+        x:{ticks:{font:{family:'IBM Plex Mono', size:11}}, grid:{display:false}}
+      }
+    }
+  });
+}
+
+['age','bmi','children','sex','region','expense','profit'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderAll);
+  document.getElementById(id).addEventListener('change', renderAll);
+});
+
+renderAll();
+buildRatingTable();
+buildCoefTable();
+buildLiftChart();
+</script>
+</body>
+</html>

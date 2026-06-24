@@ -1,0 +1,87 @@
+{
+  "coefficients": {
+    "intercept": 7.386337131910974,
+    "region_northwest": -0.057874378725578206,
+    "region_southeast": -0.14163713213108278,
+    "region_southwest": -0.14548203786400205,
+    "age": 0.028637937731613886,
+    "bmi": 0.014123669239489454,
+    "children": 0.08417222070394731,
+    "smoker_yes": 1.500330177203081,
+    "sex_male": -0.057077788098952274
+  },
+  "fit_stats": {
+    "mae": 4389.00931521813,
+    "rmse": 7770.692644560262,
+    "pseudo_r2": 0.5879451055751593,
+    "n": 1338
+  },
+  "lift_chart": [
+    {
+      "decile": 1,
+      "actual_mean": 3084.379983251852,
+      "predicted_mean": 3749.0327612562282,
+      "n": 135
+    },
+    {
+      "decile": 2,
+      "actual_mean": 4726.235464285714,
+      "predicted_mean": 4653.404508153425,
+      "n": 133
+    },
+    {
+      "decile": 3,
+      "actual_mean": 5771.694557910448,
+      "predicted_mean": 5803.690864651162,
+      "n": 134
+    },
+    {
+      "decile": 4,
+      "actual_mean": 6936.010584135339,
+      "predicted_mean": 7087.4696371219625,
+      "n": 133
+    },
+    {
+      "decile": 5,
+      "actual_mean": 8696.497651940299,
+      "predicted_mean": 8546.12329884422,
+      "n": 134
+    },
+    {
+      "decile": 6,
+      "actual_mean": 11162.952300522387,
+      "predicted_mean": 10063.765359481016,
+      "n": 134
+    },
+    {
+      "decile": 7,
+      "actual_mean": 12541.401113984963,
+      "predicted_mean": 11823.49085507562,
+      "n": 133
+    },
+    {
+      "decile": 8,
+      "actual_mean": 15459.186128134328,
+      "predicted_mean": 14436.283611045514,
+      "n": 134
+    },
+    {
+      "decile": 9,
+      "actual_mean": 27886.282929253728,
+      "predicted_mean": 23827.19195484232,
+      "n": 134
+    },
+    {
+      "decile": 10,
+      "actual_mean": 36399.12240552239,
+      "predicted_mean": 48930.906203019076,
+      "n": 134
+    }
+  ],
+  "data_summary": {
+    "n_policies": 1338,
+    "avg_charge": 13270.422265141257,
+    "smoker_avg": 32050.23183153284,
+    "nonsmoker_avg": 8434.268297856204
+  }
+}
