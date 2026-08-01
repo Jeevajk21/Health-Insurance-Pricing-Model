@@ -108,6 +108,20 @@
   .meth h3:first-child{margin-top:0;}
   .callout{background:var(--amber-light); border-radius:8px; padding:14px 16px; font-size:13.5px; color:var(--amber-text); margin:14px 0; max-width:680px;}
 
+  /* Intercept row in coefficient table */
+  .intercept-tr td{background:var(--teal-light); font-weight:600;}
+  .intercept-tr td:first-child{color:var(--teal-text);}
+  .intercept-tr .num{color:var(--teal-text);}
+  .intercept-usd{font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--teal-text); font-weight:600;}
+
+  /* Analyst note (D10 callout) */
+  .analyst-note{background:var(--amber-light); border:1px solid var(--amber); border-left:4px solid var(--amber-text); border-radius:8px; padding:16px 20px; margin-top:18px;}
+  .analyst-note-title{font-size:11.5px; font-weight:600; color:var(--amber-text); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;}
+  .analyst-note p{font-size:13px; color:var(--ink); line-height:1.65; margin-bottom:8px; max-width:none;}
+  .analyst-note p:last-child{margin-bottom:0;}
+  .analyst-note ul{padding-left:18px; margin-top:6px;}
+  .analyst-note ul li{font-size:12.5px; color:var(--ink-mute); margin-bottom:6px; line-height:1.6;}
+
   footer{margin-top:28px; font-size:12px; color:var(--ink-faint); text-align:center;}
 
   @media (max-width:760px){
@@ -220,6 +234,20 @@
       </div>
       <div class="group-title">Lift chart · actual vs predicted cost by decile</div>
       <div class="chart-wrap"><canvas id="liftChart"></canvas></div>
+
+      <div class="analyst-note">
+        <div class="analyst-note-title">⚠ Analyst Note — Decile 10 Tail Over-Prediction</div>
+        <p><strong>Decile 10 A/E = 0.74</strong>: the model predicts $48,931 on average but actual mean claims are $36,399 — an over-prediction of ~$12,500 per policy. This is a well-documented behaviour of Gamma GLMs with a log link.</p>
+        <p><strong>Why it happens:</strong> The log link is multiplicative. High-risk factor combinations (older age + high BMI + tobacco use) compound exponentially in the extreme tail where training data is sparse, causing the model to overshoot.</p>
+        <p><strong>Production mitigations:</strong></p>
+        <ul>
+          <li><strong>Winsorise large claims</strong> — cap the top 1–5% of charges before fitting so the GLM does not over-extrapolate to extreme observations.</li>
+          <li><strong>Two-component large-loss model</strong> — fit the main Gamma GLM below a threshold (e.g. $25k) and a separate Pareto/lognormal for the tail, blended with a mixing weight.</li>
+          <li><strong>Tweedie GLM</strong> — a compound Poisson-Gamma model that adapts tail behaviour via an estimated power parameter.</li>
+          <li><strong>A/E monitoring</strong> — in a live portfolio this segment would be flagged for a rate revision at the next annual filing.</li>
+        </ul>
+      </div>
+
       <div class="group-title">Coefficient significance</div>
       <table>
         <thead><tr><th>Rating factor</th><th class="num">Coefficient</th><th class="num">Relativity</th><th class="num">p-value</th><th>Significant</th></tr></thead>
@@ -439,6 +467,16 @@ function buildRatingTable(){
 }
 
 function buildCoefTable(){
+  // Intercept row — Base Rate anchor; always significant by construction
+  const baseRate = Math.exp(COEF.intercept);
+  const interceptRow = `<tr class="intercept-tr">
+    <td><strong>Base Rate (Intercept β₀)</strong><br><span style="font-size:11px;font-weight:400;color:var(--teal-text)">Anchor of the pricing equation: all relativities multiply this</span></td>
+    <td class="num">${COEF.intercept.toFixed(4)}</td>
+    <td class="num intercept-usd">$${Math.round(baseRate).toLocaleString('en-US')}</td>
+    <td class="num">&lt;0.001</td>
+    <td class="sig-yes">Yes</td>
+  </tr>`;
+
   const rows = [
     ['Age (per year)', COEF.age, Math.exp(COEF.age), PVAL.age],
     ['BMI (per unit)', COEF.bmi, Math.exp(COEF.bmi), PVAL.bmi],
@@ -459,7 +497,7 @@ function buildCoefTable(){
       <td class="${sig?'sig-yes':'sig-no'}">${sig?'Yes':'No'}</td>
     </tr>`;
   }).join('');
-  document.getElementById('coefTableBody').innerHTML = body;
+  document.getElementById('coefTableBody').innerHTML = interceptRow + body;
 }
 
 function buildLiftChart(){

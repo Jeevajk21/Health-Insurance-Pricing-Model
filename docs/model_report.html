@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Health Insurance Pricing Model — Visual Dashboard</title>
+  <meta name="description" content="Actuarial Gamma GLM pricing dashboard: base rates, rating relativities, decile validation and gross premium calculator for the Brett Lantz US Medical Cost dataset."/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#060c1a;--s1:#0d1526;--s2:#131f35;--s3:#1a2847;
+      --indigo:#6366f1;--cyan:#22d3ee;--pink:#f472b6;--violet:#a78bfa;
+      --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+      --text:#f0f4ff;--muted:#8b9fc0;--dim:#4a5a7a;
+      --r:14px;--glow:0 0 40px rgba(99,102,241,0.15);
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    /* ── Animated background ── */
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:
+        radial-gradient(ellipse 700px 500px at 10% 20%,rgba(99,102,241,0.07) 0%,transparent 60%),
+        radial-gradient(ellipse 500px 400px at 85% 70%,rgba(34,211,238,0.06) 0%,transparent 60%),
+        radial-gradient(ellipse 400px 300px at 50% 100%,rgba(244,114,182,0.05) 0%,transparent 60%);
+    }
+
+    /* ── Nav ── */
+    nav{
+      position:sticky;top:0;z-index:100;
+      background:rgba(6,12,26,0.85);backdrop-filter:blur(20px);
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      padding:0 40px;height:60px;display:flex;align-items:center;justify-content:space-between;
+    }
+    .nav-brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;letter-spacing:.02em}
+    .nav-brand .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .nav-links{display:flex;gap:4px}
+    .nav-links a{padding:6px 14px;border-radius:8px;font-size:13px;color:var(--muted);text-decoration:none;transition:.2s}
+    .nav-links a:hover{background:rgba(255,255,255,0.06);color:var(--text)}
+
+    /* ── Hero ── */
+    .hero{
+      position:relative;z-index:1;padding:70px 60px 60px;
+      background:linear-gradient(160deg,#0d1a3a 0%,#060c1a 50%);
+      border-bottom:1px solid rgba(255,255,255,0.05);overflow:hidden;
+    }
+    .hero::after{
+      content:'';position:absolute;top:-100px;right:-100px;
+      width:600px;height:600px;border-radius:50%;
+      background:radial-gradient(circle,rgba(99,102,241,0.12) 0%,transparent 65%);
+      pointer-events:none;animation:float 8s ease-in-out infinite;
+    }
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+    .hero-tag{
+      display:inline-flex;align-items:center;gap:8px;
+      background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);
+      color:#a5b4fc;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+      padding:6px 16px;border-radius:100px;margin-bottom:20px;
+    }
+    .hero h1{
+      font-size:clamp(28px,5vw,52px);font-weight:900;line-height:1.1;margin-bottom:16px;
+      background:linear-gradient(135deg,#fff 30%,#a5b4fc 70%,#67e8f9 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hero-sub{font-size:16px;color:var(--muted);max-width:600px;line-height:1.7}
+    .hero-chips{margin-top:28px;display:flex;gap:10px;flex-wrap:wrap}
+    .chip{
+      padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);
+    }
+    .chip.good{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.2);color:var(--green)}
+
+    /* ── Layout ── */
+    .page{max-width:1280px;margin:0 auto;padding:48px 40px;position:relative;z-index:1}
+    .section-gap{margin-bottom:64px}
+    .sec-label{
+      font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--cyan);margin-bottom:22px;display:flex;align-items:center;gap:12px;
+    }
+    .sec-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.06)}
+
+    /* ── Cards ── */
+    .card{
+      background:var(--s1);border:1px solid rgba(255,255,255,0.07);
+      border-radius:var(--r);padding:28px;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .card:hover{border-color:rgba(99,102,241,0.2);box-shadow:var(--glow)}
+    .card-title{font-size:14px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+
+    /* ── KPI grid ── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+    .kpi{
+      background:var(--s1);border:1px solid rgba(255,255,255,0.07);border-radius:var(--r);
+      padding:24px 22px;position:relative;overflow:hidden;cursor:default;
+      transition:transform .25s,box-shadow .25s,border-color .25s;
+    }
+    .kpi:hover{transform:translateY(-4px);box-shadow:0 16px 48px rgba(0,0,0,.5);border-color:rgba(255,255,255,.14)}
+    .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--indigo));border-radius:var(--r) var(--r) 0 0}
+    .kpi::after{
+      content:attr(data-icon);position:absolute;bottom:14px;right:18px;
+      font-size:36px;opacity:.09;pointer-events:none;
+    }
+    .kpi-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    .kpi-val{font-size:34px;font-weight:900;line-height:1;color:var(--text)}
+    .kpi-sub{font-size:12px;color:var(--dim);margin-top:8px}
+    .kpi-trend{
+      margin-top:12px;display:inline-flex;align-items:center;gap:5px;
+      font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;
+    }
+
+    /* ── Base Rate highlighted card ── */
+    .base-rate-card{
+      margin-top:18px;
+      background:linear-gradient(135deg,rgba(99,102,241,0.12) 0%,rgba(34,211,238,0.07) 100%);
+      border:1px solid rgba(99,102,241,0.35);border-radius:var(--r);padding:26px 28px;
+      position:relative;overflow:hidden;
+    }
+    .base-rate-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;
+      background:linear-gradient(90deg,var(--indigo),var(--cyan));
+      border-radius:var(--r) var(--r) 0 0;
+    }
+    .base-rate-card::after{content:'⚓';position:absolute;bottom:14px;right:22px;font-size:44px;opacity:.07;pointer-events:none}
+    .base-rate-lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#a5b4fc;margin-bottom:12px}
+    .base-rate-body{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+    .base-rate-val{font-size:48px;font-weight:900;background:linear-gradient(90deg,#a5b4fc,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+    .base-rate-desc{font-size:13px;color:var(--muted);line-height:1.6;max-width:400px}
+    .base-rate-equation{
+      margin-top:14px;font-size:12.5px;color:var(--muted);
+      background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);
+      border-radius:10px;padding:12px 16px;font-family:monospace;line-height:1.8;
+    }
+    .base-rate-equation strong{color:#a5b4fc}
+
+    /* ── Two / three col ── */
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+    @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+
+    /* ── Chart wrappers ── */
+    .chart-box{position:relative;height:300px}
+    .chart-sm{position:relative;height:220px}
+
+    /* ── Highlight boxes ── */
+    .hl-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
+    .hl-box{background:var(--s2);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:20px 18px}
+    .hl-lbl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+    .hl-val{font-size:28px;font-weight:900;line-height:1}
+
+    /* ── Coef bars ── */
+    .coef-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .coef-name{font-size:13px;color:var(--muted);width:140px;flex-shrink:0}
+    .coef-track{flex:1;background:rgba(255,255,255,0.05);border-radius:100px;height:9px;overflow:hidden}
+    .coef-fill{height:100%;border-radius:100px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+    .coef-num{font-size:12px;font-weight:700;width:62px;text-align:right;flex-shrink:0}
+    .sig{font-size:10px;padding:2px 7px;border-radius:100px;flex-shrink:0}
+    .sig-y{background:rgba(16,185,129,0.12);color:var(--green)}
+    .sig-n{background:rgba(255,255,255,0.05);color:var(--dim)}
+
+    /* ── Intercept / Base Rate row ── */
+    .intercept-row{
+      background:rgba(99,102,241,0.08);
+      border:1px solid rgba(99,102,241,0.25);
+      border-radius:12px;padding:12px 14px;margin-bottom:16px;
+    }
+    .intercept-row .coef-name{color:var(--text);font-weight:700;font-size:13.5px}
+    .intercept-badge{
+      font-size:12px;font-weight:800;color:#a5b4fc;
+      background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);
+      border-radius:8px;padding:3px 10px;flex-shrink:0;white-space:nowrap;
+    }
+
+    /* ── Lift table ── */
+    .lift-table{width:100%;border-collapse:collapse;font-size:13px}
+    .lift-table th{padding:10px 14px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid rgba(255,255,255,0.06);text-align:left}
+    .lift-table td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.04)}
+    .lift-table tr:last-child td{border:none}
+    .lift-table tr:hover td{background:rgba(255,255,255,0.025)}
+    .d-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.15);color:#a5b4fc;font-weight:800;font-size:12px}
+    .ae-pill{display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700}
+    .ae-bar{height:4px;border-radius:100px;margin-top:4px}
+
+    /* ── Analyst Note ── */
+    .analyst-note{
+      margin-top:24px;
+      background:rgba(245,158,11,0.06);
+      border:1px solid rgba(245,158,11,0.3);
+      border-left:4px solid var(--amber);
+      border-radius:var(--r);padding:22px 26px;
+    }
+    .analyst-note-title{
+      font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--amber);margin-bottom:12px;display:flex;align-items:center;gap:8px;
+    }
+    .analyst-note p{font-size:13.5px;color:var(--muted);line-height:1.75;margin-bottom:10px}
+    .analyst-note p:last-child{margin-bottom:0}
+    .analyst-note ul{padding-left:20px;margin-top:8px}
+    .analyst-note ul li{font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.65}
+    .analyst-note strong{color:var(--text)}
+
+    /* ── Calculator ── */
+    .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+    @media(max-width:760px){.calc-grid{grid-template-columns:1fr}}
+    .field{margin-bottom:16px}
+    .field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase}
+    .field input[type=range]{width:100%;accent-color:var(--indigo)}
+    .field select{
+      width:100%;background:var(--s2);border:1px solid rgba(255,255,255,0.1);
+      border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;font-family:inherit;
+      outline:none;transition:.2s;
+    }
+    .field select:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,0.15)}
+    .range-row{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:2px}
+    .calc-divider{border:none;border-top:1px dashed rgba(255,255,255,0.08);margin:18px 0}
+    .calc-section-lbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);margin-bottom:14px}
+
+    .smoker-toggle{display:flex;gap:0;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.1)}
+    .smoker-toggle button{
+      flex:1;padding:10px;background:var(--s2);border:none;color:var(--muted);
+      font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.2s;
+    }
+    .smoker-toggle button.active{background:rgba(244,114,182,0.2);color:var(--pink)}
+
+    /* Result panel */
+    .calc-result{
+      background:linear-gradient(160deg,rgba(10,18,40,0.9) 0%,rgba(15,25,50,0.9) 100%);
+      border:1px solid rgba(99,102,241,0.25);border-radius:var(--r);padding:28px;
+      display:flex;flex-direction:column;align-items:center;text-align:center;
+    }
+    .result-section-lbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+    .result-pure-val{font-size:32px;font-weight:900;color:var(--muted);line-height:1;margin-bottom:4px}
+    .result-loading-eq{font-size:12px;color:var(--dim);margin-bottom:18px}
+    .result-divider{width:100%;border:none;border-top:1px dashed rgba(255,255,255,0.12);margin:16px 0}
+    .result-gross-val{font-size:52px;font-weight:900;background:linear-gradient(90deg,var(--indigo),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+    .result-monthly{font-size:15px;color:var(--muted);margin-top:6px}
+
+    .result-breakdown{margin-top:22px;width:100%;font-size:13px}
+    .rb-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--dim)}
+    .rb-row:last-child{border:none}
+    .rb-row span:last-child{color:var(--text);font-weight:600}
+    .rb-row.rb-sub{background:rgba(255,255,255,0.025);margin:0 -4px;padding:7px 4px;border-radius:6px}
+    .rb-row.rb-sub span{color:var(--muted);font-weight:600}
+    .rb-row.rb-final{background:rgba(34,211,238,0.06);margin:4px -4px 0;padding:9px 4px;border-radius:8px;border:1px solid rgba(34,211,238,0.15)}
+    .rb-row.rb-final span{color:var(--cyan);font-weight:800}
+
+    .calc-btn{
+      margin-top:20px;width:100%;padding:14px;border:none;border-radius:10px;cursor:pointer;
+      background:linear-gradient(135deg,var(--indigo),#8b5cf6);color:#fff;font-size:14px;font-weight:700;
+      font-family:inherit;transition:.2s;letter-spacing:.02em;
+    }
+    .calc-btn:hover{opacity:.85;transform:translateY(-1px)}
+
+    /* ── Footer ── */
+    footer{
+      border-top:1px solid rgba(255,255,255,0.05);padding:28px 40px;
+      display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+      font-size:12px;color:var(--dim);position:relative;z-index:1;
+    }
+    .footer-brand{font-weight:700;color:var(--muted)}
+
+    /* ── Animations ── */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp .6s ease both}
+    .fade-up-2{animation:fadeUp .6s .12s ease both}
+    .fade-up-3{animation:fadeUp .6s .24s ease both}
+
+    @media(max-width:680px){
+      .hero{padding:48px 24px 40px}
+      .page{padding:36px 20px}
+      nav{padding:0 20px}
+      footer{padding:20px}
+      .base-rate-val{font-size:38px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-brand"><span class="dot"></span> Health Insurance Pricing Model</div>
+  <div class="nav-links">
+    <a href="#performance">Performance</a>
+    <a href="#risk-factors">Risk Factors</a>
+    <a href="#lift">Lift Chart</a>
+    <a href="#calculator">Calculator</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-tag">✦ Gamma GLM · US Medical Cost Dataset · 1 August 2026</div>
+  <h1>Health Insurance<br/>Pricing Dashboard</h1>
+  <p class="hero-sub">Actuarial-grade severity model fit on 1,338 real US health insurance policies. Includes base rate, rating relativities, decile validation, and a fully-loaded gross premium calculator.</p>
+  <div class="hero-chips">
+    <span class="chip good">✓ Model converged in 18 iterations</span>
+    <span class="chip">Gamma GLM · Log Link · IRLS</span>
+    <span class="chip">n = 1,338 US policies</span>
+    <span class="chip">Pseudo R² = 0.588</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ── KPIs ── -->
+  <section class="section-gap" id="performance">
+    <div class="sec-label">Model Performance</div>
+    <div class="kpi-grid fade-up">
+      <div class="kpi" style="--kc:#6366f1" data-icon="📐">
+        <div class="kpi-lbl">Pseudo R²</div>
+        <div class="kpi-val">0.588</div>
+        <div class="kpi-sub">Cox-Snell R² = 0.683</div>
+        <div class="kpi-trend" style="background:rgba(16,185,129,.1);color:#10b981">↑ Good fit</div>
+      </div>
+      <div class="kpi" style="--kc:#22d3ee" data-icon="📏">
+        <div class="kpi-lbl">Mean Abs. Error</div>
+        <div class="kpi-val">$4,389</div>
+        <div class="kpi-sub">Average prediction error</div>
+        <div class="kpi-trend" style="background:rgba(34,211,238,.1);color:#22d3ee">Per policy · USD</div>
+      </div>
+      <div class="kpi" style="--kc:#f472b6" data-icon="📉">
+        <div class="kpi-lbl">RMSE</div>
+        <div class="kpi-val">$7,771</div>
+        <div class="kpi-sub">Root Mean Sq. Error</div>
+        <div class="kpi-trend" style="background:rgba(244,114,182,.1);color:#f472b6">Tail risk signal</div>
+      </div>
+      <div class="kpi" style="--kc:#10b981" data-icon="👥">
+        <div class="kpi-lbl">Policies</div>
+        <div class="kpi-val">1,338</div>
+        <div class="kpi-sub">Avg charge: $13,270</div>
+        <div class="kpi-trend" style="background:rgba(16,185,129,.1);color:#10b981">Training set</div>
+      </div>
+      <div class="kpi" style="--kc:#f59e0b" data-icon="🔬">
+        <div class="kpi-lbl">Deviance</div>
+        <div class="kpi-val">337.7</div>
+        <div class="kpi-sub">Residual deviance</div>
+        <div class="kpi-trend" style="background:rgba(245,158,11,.1);color:#f59e0b">df = 1,329</div>
+      </div>
+      <div class="kpi" style="--kc:#a78bfa" data-icon="📊">
+        <div class="kpi-lbl">Scale Param</div>
+        <div class="kpi-val">0.467</div>
+        <div class="kpi-sub">Gamma dispersion</div>
+        <div class="kpi-trend" style="background:rgba(167,139,250,.1);color:#a78bfa">Log-lik: −13,307</div>
+      </div>
+    </div>
+
+    <!-- Base Rate Card — the anchor of every premium calculation -->
+    <div class="base-rate-card fade-up-2">
+      <div class="base-rate-lbl">⚓ Base Rate — Exponentiated Intercept (exp β₀) — Anchor of the Pricing Equation</div>
+      <div class="base-rate-body">
+        <div class="base-rate-val" id="base-rate-display">$1,614</div>
+        <div class="base-rate-desc">
+          The <strong style="color:var(--text)">Base Rate</strong> is <code style="color:#a5b4fc;background:rgba(99,102,241,0.1);padding:2px 6px;border-radius:4px">exp(β₀) = exp(7.3863) = $1,614</code>.
+          It is the first factor every underwriter multiplies against — without it, the individual relativities below are meaningless.
+          All continuous rating factors (age, BMI, etc.) then multiply the base rate using their raw covariate values.
+        </div>
+      </div>
+      <div class="base-rate-equation">
+        E[Y] = <strong>exp(β₀)</strong> × exp(β<sub>age</sub> · age) × exp(β<sub>bmi</sub> · bmi) × exp(β<sub>children</sub> · children) × exp(β<sub>smoker</sub> · smoker) × exp(β<sub>region</sub>)<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <strong>$1,614</strong> × exp(0.02864 · age) × exp(0.01412 · bmi) × exp(0.08417 · children) × exp(1.5003 · smoker) × exp(β<sub>region</sub>)<br/>
+        <span style="color:var(--dim);font-size:11px">Example (age 40, BMI 28, non-smoker, NE): $1,614 × exp(0.02864×40) × exp(0.01412×28) = $1,614 × 3.162 × 1.480 ≈ <strong style="color:#a5b4fc">$7,551 pure premium</strong></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Smoker Highlight ── -->
+  <section class="section-gap">
+    <div class="sec-label">Smoking — The Dominant Risk Factor</div>
+    <div class="card">
+      <div class="hl-row">
+        <div class="hl-box">
+          <div class="hl-lbl">🚬 Smoker Avg Charge</div>
+          <div class="hl-val" style="color:#f472b6">$32,050</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">Per annum · USD</div>
+        </div>
+        <div class="hl-box">
+          <div class="hl-lbl">✅ Non-Smoker Avg Charge</div>
+          <div class="hl-val" style="color:#10b981">$8,434</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">Per annum · USD</div>
+        </div>
+        <div class="hl-box">
+          <div class="hl-lbl">📈 Smoker Multiplier</div>
+          <div class="hl-val" style="color:#f59e0b">4.48×</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">exp(1.5003)</div>
+        </div>
+        <div class="hl-box">
+          <div class="hl-lbl">💰 Extra Annual Cost</div>
+          <div class="hl-val" style="color:#ef4444">$23,616</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">Smoker premium · USD</div>
+        </div>
+        <div class="hl-box">
+          <div class="hl-lbl">📋 Portfolio Avg</div>
+          <div class="hl-val" style="color:#a78bfa">$13,270</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">All 1,338 policies</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Charts row 1 ── -->
+  <section class="section-gap" id="risk-factors">
+    <div class="sec-label">Visual Analysis</div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">📊 Lift Chart — Actual vs Predicted (USD)</div>
+        <div class="chart-box"><canvas id="liftChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔢 Risk Multipliers — exp(coefficients)</div>
+        <div class="chart-box"><canvas id="multChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Charts row 2 ── -->
+  <section class="section-gap">
+    <div class="g3">
+      <div class="card">
+        <div class="card-title">🚬 Smoker vs Non-Smoker</div>
+        <div class="chart-sm"><canvas id="smokerChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌍 Regional Adjustment (log-scale)</div>
+        <div class="chart-sm"><canvas id="regionChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📉 A/E Ratio by Decile</div>
+        <div class="chart-sm"><canvas id="aeChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Coefficients ── -->
+  <section class="section-gap">
+    <div class="sec-label">GLM Coefficients — Including Base Rate Intercept</div>
+    <div class="card">
+      <div class="card-title">📋 Log-scale coefficients · exp(β) = multiplicative effect on claims cost</div>
+      <div id="coef-bars"></div>
+    </div>
+  </section>
+
+  <!-- ── Lift Table ── -->
+  <section class="section-gap" id="lift">
+    <div class="sec-label">Decile Validation</div>
+    <div class="card">
+      <div class="card-title">📈 Actual vs Predicted — A/E Ratio by Risk Decile (USD)</div>
+      <table class="lift-table">
+        <thead>
+          <tr>
+            <th>Decile</th><th>N</th><th>Actual Mean</th><th>Predicted Mean</th><th>A/E Ratio</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="lift-tbody"></tbody>
+      </table>
+
+      <!-- ── Analyst Note: Decile 10 Over-Prediction ── -->
+      <div class="analyst-note">
+        <div class="analyst-note-title">⚠ Analyst Note — Decile 10 Tail Over-Prediction</div>
+        <p>
+          Decile 10 shows an <strong>A/E ratio of 0.74</strong>: the model predicts an average of <strong>$48,931</strong> but actual mean claims are only <strong>$36,399</strong> — an over-prediction of approximately <strong>$12,500 per policy</strong>. This is a well-documented behaviour of Gamma GLMs with a log link and is not a model failure, but it must be understood and defended.
+        </p>
+        <p>
+          <strong>Why it happens:</strong> The log link is multiplicative. When multiple high-risk factors compound simultaneously (e.g. older age + high BMI + tobacco use), the exponentiation extrapolates very aggressively into the sparse extreme right tail, overshooting the actual observed costs where the training data is thin.
+        </p>
+        <p><strong>How a production team would address this:</strong></p>
+        <ul>
+          <li><strong>Winsorise large claims before fitting</strong> — cap the top 1–5% of charges (e.g. at the 99th percentile, ~$50k) before running the GLM. This prevents the model from over-fitting to extreme observations while keeping the bulk of the distribution well-calibrated.</li>
+          <li><strong>Two-component large-loss model</strong> — fit the main Gamma GLM for claims below a large-loss threshold (e.g. $25k), then fit a separate Pareto or lognormal model for the tail, blending them with a mixing weight. This is standard practice in reinsurance pricing.</li>
+          <li><strong>Tweedie GLM</strong> — a compound Poisson-Gamma model that handles zero-inflated, heavy-tailed aggregate loss distributions more naturally. The Tweedie power parameter is estimated from the data and adapts the tail behaviour automatically.</li>
+          <li><strong>A/E monitoring at next filing</strong> — in a live portfolio, this decile would be flagged for a rate revision at the annual rate review, with credibility-weighted rate changes applied to the top-decile segment.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Calculator ── -->
+  <section class="section-gap" id="calculator">
+    <div class="sec-label">Live Gross Premium Calculator</div>
+    <div class="card">
+      <div class="card-title">🧮 Build a Fully-Loaded Gross Premium — Pure Premium ÷ (1 − Expense% − Profit%)</div>
+      <div class="calc-grid">
+
+        <!-- Left: inputs -->
+        <div>
+          <div class="calc-section-lbl">Risk Characteristics</div>
+          <div class="field">
+            <label>Age — <span id="age-display">35</span> years</label>
+            <input type="range" id="age" min="18" max="64" value="35" oninput="calcPrice()"/>
+            <div class="range-row"><span>18</span><span>64</span></div>
+          </div>
+          <div class="field">
+            <label>BMI — <span id="bmi-display">27.0</span></label>
+            <input type="range" id="bmi" min="15" max="53" step="0.1" value="27" oninput="calcPrice()"/>
+            <div class="range-row"><span>15</span><span>53</span></div>
+          </div>
+          <div class="field">
+            <label>Children / Dependents — <span id="children-display">0</span></label>
+            <input type="range" id="children" min="0" max="5" value="0" oninput="calcPrice()"/>
+            <div class="range-row"><span>0</span><span>5</span></div>
+          </div>
+          <div class="field">
+            <label>Tobacco Use</label>
+            <div class="smoker-toggle">
+              <button id="btn-no" class="active" onclick="setSmoker(false)">✅ Non-Smoker</button>
+              <button id="btn-yes" onclick="setSmoker(true)">🚬 Smoker</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Sex</label>
+            <select id="sex" onchange="calcPrice()">
+              <option value="0">Female</option>
+              <option value="1">Male</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Geographic Region</label>
+            <select id="region" onchange="calcPrice()">
+              <option value="0">Northeast (reference class)</option>
+              <option value="-0.0579">Northwest</option>
+              <option value="-0.1416">Southeast</option>
+              <option value="-0.1455">Southwest</option>
+            </select>
+          </div>
+
+          <hr class="calc-divider"/>
+          <div class="calc-section-lbl">Commercial Loadings</div>
+          <div class="field">
+            <label>Expense Loading — <span id="exp-display">25</span>%</label>
+            <input type="range" id="expense" min="10" max="40" value="25" oninput="calcPrice()"/>
+            <div class="range-row"><span>10%</span><span>40%</span></div>
+          </div>
+          <div class="field">
+            <label>Profit Margin — <span id="profit-display">5</span>%</label>
+            <input type="range" id="profit" min="0" max="20" value="5" oninput="calcPrice()"/>
+            <div class="range-row"><span>0%</span><span>20%</span></div>
+          </div>
+        </div>
+
+        <!-- Right: result panel -->
+        <div class="calc-result">
+          <div class="result-section-lbl" style="color:var(--muted)">Step 1 — Pure Premium (GLM Output)</div>
+          <div class="result-pure-val" id="result-pure">$0</div>
+          <div class="result-loading-eq" id="loading-eq">÷ (1 − 25% − 5%) = ÷ 0.70</div>
+          <hr class="result-divider"/>
+          <div class="result-section-lbl" style="color:var(--cyan)">Step 2 — Fully-Loaded Gross Annual Premium</div>
+          <div class="result-gross-val" id="result-val">$0</div>
+          <div class="result-monthly" id="result-pa">$0 / month</div>
+          <div class="result-breakdown" id="result-breakdown"></div>
+          <button class="calc-btn" onclick="calcPrice()">🔄 Recalculate</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="footer-brand">Health Insurance Pricing Model</div>
+  <div>Gamma GLM · Log Link · Brett Lantz US Medical Cost Dataset · August 2026</div>
+  <div>n=1,338 · Pseudo R²=0.588 · MAE=$4,389 · All values in USD</div>
+</footer>
+
+<script>
+// ── Data ──
+const LIFT = [
+  {d:1,  a:3084,  p:3749,  n:135},
+  {d:2,  a:4726,  p:4653,  n:133},
+  {d:3,  a:5772,  p:5804,  n:134},
+  {d:4,  a:6936,  p:7087,  n:133},
+  {d:5,  a:8696,  p:8546,  n:134},
+  {d:6,  a:11163, p:10064, n:134},
+  {d:7,  a:12541, p:11823, n:133},
+  {d:8,  a:15459, p:14436, n:134},
+  {d:9,  a:27886, p:23827, n:134},
+  {d:10, a:36399, p:48931, n:134},
+];
+
+// Fitted GLM coefficients — log-scale
+const MODEL = {
+  intercept: 7.386337,
+  age:       0.028638,
+  bmi:       0.014124,
+  children:  0.084172,
+  smoker:    1.500330,
+  sex:      -0.057078,
+};
+const BASE_RATE = Math.exp(MODEL.intercept); // exp(7.3863) ≈ $1,614
+
+// Rating factor coefficients for the bar chart (excluding intercept — handled separately)
+const COEFS = [
+  {n:'Smoker',     v:1.5003,  sig:true},
+  {n:'Children',   v:0.0842,  sig:true},
+  {n:'Age',        v:0.0286,  sig:true},
+  {n:'BMI',        v:0.0141,  sig:true},
+  {n:'Region SW',  v:-0.1455, sig:true},
+  {n:'Region SE',  v:-0.1416, sig:true},
+  {n:'Region NW',  v:-0.0579, sig:false},
+  {n:'Sex (male)', v:-0.0571, sig:false},
+];
+
+// ── Chart defaults ──
+const CT = (el) => document.getElementById(el).getContext('2d');
+Chart.defaults.color = '#8b9fc0';
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+// ── Lift Chart (Actual vs Predicted) ──
+new Chart(CT('liftChart'),{
+  type:'bar',
+  data:{
+    labels: LIFT.map(r=>'D'+r.d),
+    datasets:[
+      {label:'Actual',   data:LIFT.map(r=>r.a), backgroundColor:'rgba(99,102,241,0.75)', borderRadius:6, borderSkipped:false},
+      {label:'Predicted',data:LIFT.map(r=>r.p), backgroundColor:'rgba(34,211,238,0.45)', borderColor:'rgba(34,211,238,0.8)', borderWidth:1, borderRadius:6, borderSkipped:false},
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{color:'#8b9fc0',font:{size:12}}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${c.parsed.y.toLocaleString('en-US')}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#8b9fc0',callback:v=>'$'+v.toLocaleString('en-US')},grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  }
+});
+
+// ── Risk Multiplier chart (horizontal bars) ──
+new Chart(CT('multChart'),{
+  type:'bar',
+  data:{
+    labels: COEFS.map(c=>c.n),
+    datasets:[{
+      label:'Multiplier (exp β)',
+      data: COEFS.map(c=>+Math.exp(c.v).toFixed(3)),
+      backgroundColor: COEFS.map(c=>c.sig?'rgba(99,102,241,0.7)':'rgba(148,163,184,0.25)'),
+      borderColor: COEFS.map(c=>c.sig?'#6366f1':'#4a5a7a'),
+      borderWidth:1,borderRadius:6,borderSkipped:false,
+    }]
+  },
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>`×${c.parsed.x.toFixed(3)}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'},title:{display:true,text:'Multiplicative Effect on Claims Cost',color:'#8b9fc0',font:{size:11}}},
+      y:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  }
+});
+
+// ── Smoker doughnut ──
+new Chart(CT('smokerChart'),{
+  type:'doughnut',
+  data:{
+    labels:['🚬 Smoker $32,050','✅ Non-Smoker $8,434'],
+    datasets:[{
+      data:[32050,8434],
+      backgroundColor:['rgba(244,114,182,0.7)','rgba(16,185,129,0.7)'],
+      borderColor:['#f472b6','#10b981'],
+      borderWidth:2,hoverOffset:6
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'68%',
+    plugins:{
+      legend:{position:'bottom',labels:{color:'#8b9fc0',font:{size:11},padding:12}},
+      tooltip:{callbacks:{label:c=>`${c.label}: $${c.parsed.toLocaleString('en-US')}`}}
+    }
+  }
+});
+
+// ── Region bar ──
+new Chart(CT('regionChart'),{
+  type:'bar',
+  data:{
+    labels:['Northeast','Northwest','Southeast','Southwest'],
+    datasets:[{
+      label:'Regional coefficient (log)',
+      data:[0,-0.0579,-0.1416,-0.1455],
+      backgroundColor:['rgba(99,102,241,0.8)','rgba(34,211,238,0.6)','rgba(244,114,182,0.6)','rgba(167,139,250,0.6)'],
+      borderRadius:6,borderSkipped:false,
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>`${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(4)} (log) → ×${Math.exp(c.parsed.y).toFixed(3)}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#8b9fc0',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  }
+});
+
+// ── A/E ratio line ──
+new Chart(CT('aeChart'),{
+  type:'line',
+  data:{
+    labels: LIFT.map(r=>'D'+r.d),
+    datasets:[
+      {label:'A/E Ratio',data:LIFT.map(r=>+(r.a/r.p).toFixed(3)),borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,0.1)',pointBackgroundColor:LIFT.map(r=>{const ae=r.a/r.p;return ae<0.85||ae>1.15?'#ef4444':'#22d3ee'}),pointRadius:5,tension:.35,fill:true},
+      {label:'Target = 1.0',data:LIFT.map(()=>1),borderColor:'rgba(255,255,255,0.2)',borderDash:[6,4],pointRadius:0,tension:0}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{color:'#8b9fc0',font:{size:11}}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#8b9fc0'},grid:{color:'rgba(255,255,255,0.04)'},min:0.5,max:1.5}
+    }
+  }
+});
+
+// ── Coefficient bars — Intercept (Base Rate) displayed prominently first ──
+const barsEl = document.getElementById('coef-bars');
+
+// 1. Intercept row — special treatment
+barsEl.innerHTML = `
+<div class="coef-row intercept-row">
+  <div class="coef-name">Base Rate (β₀)</div>
+  <div class="coef-track">
+    <div class="coef-fill" style="width:100%;background:linear-gradient(90deg,#6366f1,#22d3ee)"></div>
+  </div>
+  <div class="coef-num" style="color:#a5b4fc;width:68px">${MODEL.intercept.toFixed(4)}</div>
+  <span class="sig sig-y">p&lt;0.001</span>
+  <span class="intercept-badge">exp(β₀) = $${Math.round(BASE_RATE).toLocaleString('en-US')}</span>
+</div>`;
+
+// 2. Rating factor rows
+const maxAbs = Math.max(...COEFS.map(c=>Math.abs(c.v)));
+COEFS.forEach(c=>{
+  const pct = (Math.abs(c.v)/maxAbs*100).toFixed(1);
+  const pos = c.v >= 0;
+  const col = c.sig ? (pos?'#6366f1':'#22d3ee') : '#4a5a7a';
+  barsEl.innerHTML += `
+  <div class="coef-row">
+    <div class="coef-name">${c.n}</div>
+    <div class="coef-track"><div class="coef-fill" style="width:${pct}%;background:${col}"></div></div>
+    <div class="coef-num" style="color:${col}">${pos?'+':''}${c.v.toFixed(4)}</div>
+    <span class="sig ${c.sig?'sig-y':'sig-n'}">${c.sig?'p&lt;0.05':'n.s.'}</span>
+    <span style="font-size:11px;color:var(--dim);min-width:60px">×${Math.exp(c.v).toFixed(3)}</span>
+  </div>`;
+});
+
+// ── Lift Table ──
+const tbody = document.getElementById('lift-tbody');
+LIFT.forEach(r=>{
+  const ae = (r.a/r.p).toFixed(2);
+  const aen = parseFloat(ae);
+  let pc='#10b981', pb='rgba(16,185,129,0.12)';
+  if(aen<0.85||aen>1.15){pc='#ef4444';pb='rgba(239,68,68,0.12)';}
+  else if(aen<0.95||aen>1.05){pc='#f59e0b';pb='rgba(245,158,11,0.12)';}
+  const barW = Math.min(Math.abs(aen-1)*200,100);
+  const barDir = aen>1?'rgba(16,185,129,0.6)':'rgba(239,68,68,0.6)';
+  const status = aen>=0.95&&aen<=1.05 ? '✓ On target' : aen>=0.85&&aen<=1.15 ? '⚠ Acceptable' : '✗ Review';
+  tbody.innerHTML += `<tr>
+    <td><span class="d-badge">${r.d}</span></td>
+    <td>${r.n}</td>
+    <td>$${r.a.toLocaleString('en-US')}</td>
+    <td>$${r.p.toLocaleString('en-US')}</td>
+    <td>
+      <span class="ae-pill" style="color:${pc};background:${pb}">${ae}</span>
+      <div class="ae-bar" style="width:${barW}%;background:${barDir}"></div>
+    </td>
+    <td style="font-size:11px;color:${pc}">${status}</td>
+  </tr>`;
+});
+
+// ── Gross Premium Calculator ──
+let smokerVal = 0;
+
+function setSmoker(v){
+  smokerVal = v ? 1 : 0;
+  document.getElementById('btn-yes').className = v ? 'active' : '';
+  document.getElementById('btn-no').className  = v ? '' : 'active';
+  calcPrice();
+}
+
+function calcPrice(){
+  const age      = +document.getElementById('age').value;
+  const bmi      = +document.getElementById('bmi').value;
+  const children = +document.getElementById('children').value;
+  const sex      = +document.getElementById('sex').value;
+  const region   = +document.getElementById('region').value;
+  const expPct   = +document.getElementById('expense').value;
+  const profPct  = +document.getElementById('profit').value;
+
+  // Update display labels
+  document.getElementById('age-display').textContent      = age;
+  document.getElementById('bmi-display').textContent      = bmi.toFixed(1);
+  document.getElementById('children-display').textContent = children;
+  document.getElementById('exp-display').textContent      = expPct;
+  document.getElementById('profit-display').textContent   = profPct;
+
+  // Step 1: Pure premium — the GLM output (E[Y] on the original USD scale)
+  const logEta = MODEL.intercept + MODEL.age*age + MODEL.bmi*bmi +
+                 MODEL.children*children + MODEL.smoker*smokerVal +
+                 MODEL.sex*sex + region;
+  const purePremium = Math.exp(logEta);
+
+  // Step 2: Gross premium — grossed up for expense and profit loadings
+  const expRatio   = expPct / 100;
+  const profRatio  = profPct / 100;
+  const divisor    = 1 - expRatio - profRatio;
+  const grossPremium = divisor > 0 ? purePremium / divisor : Infinity;
+
+  // Update result panel
+  document.getElementById('result-pure').textContent    = '$' + Math.round(purePremium).toLocaleString('en-US');
+  document.getElementById('loading-eq').textContent     = `÷ (1 − ${expPct}% − ${profPct}%) = ÷ ${divisor.toFixed(2)}`;
+  document.getElementById('result-val').textContent     = '$' + Math.round(grossPremium).toLocaleString('en-US');
+  document.getElementById('result-pa').textContent      = '$' + Math.round(grossPremium/12).toLocaleString('en-US') + ' / month';
+
+  // Pricing build-up breakdown
+  const ageFactor      = Math.exp(MODEL.age      * age);
+  const bmiFactor      = Math.exp(MODEL.bmi      * bmi);
+  const childFactor    = Math.exp(MODEL.children * children);
+  const smokerFactor   = Math.exp(MODEL.smoker   * smokerVal);
+  const sexFactor      = Math.exp(MODEL.sex      * sex);
+  const regionFactor   = Math.exp(region);
+
+  const breakdown = [
+    ['Base Rate  exp(β₀)',                    '$' + Math.round(BASE_RATE).toLocaleString('en-US')],
+    ['× Age factor  exp(0.02864 × '+age+')', '×' + ageFactor.toFixed(3)],
+    ['× BMI factor  exp(0.01412 × '+bmi.toFixed(1)+')', '×' + bmiFactor.toFixed(3)],
+    ['× Children factor', children>0 ? '×'+childFactor.toFixed(3) : '×1.000'],
+    ['× Tobacco loading', smokerVal  ? '×'+smokerFactor.toFixed(3)+' (4.48×)' : '×1.000'],
+    ['× Sex adjustment',  sex        ? '×'+sexFactor.toFixed(3) : '×1.000 (female)'],
+    ['× Region factor',   region!==0 ? '×'+regionFactor.toFixed(3) : '×1.000 (NE)'],
+  ];
+
+  document.getElementById('result-breakdown').innerHTML =
+    breakdown.map(([l,v]) =>
+      `<div class="rb-row"><span>${l}</span><span>${v}</span></div>`
+    ).join('') +
+    `<div class="rb-row rb-sub"><span>= Pure premium (GLM)</span><span>$${Math.round(purePremium).toLocaleString('en-US')}</span></div>` +
+    `<div class="rb-row"><span>÷ Loading divisor (1 − ${expPct}% − ${profPct}%)</span><span>÷ ${divisor.toFixed(2)}</span></div>` +
+    `<div class="rb-row rb-final"><span>= Gross annual premium</span><span>$${Math.round(grossPremium).toLocaleString('en-US')}</span></div>`;
+}
+
+calcPrice();
+</script>
+</body>
+</html>

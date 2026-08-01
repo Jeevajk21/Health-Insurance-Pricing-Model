@@ -1,80 +1,80 @@
 {
   "coefficients": {
-    "intercept": 7.386337131910974,
-    "region_northwest": -0.057874378725578206,
-    "region_southeast": -0.14163713213108278,
-    "region_southwest": -0.14548203786400205,
-    "age": 0.028637937731613886,
-    "bmi": 0.014123669239489454,
-    "children": 0.08417222070394731,
-    "smoker_yes": 1.500330177203081,
-    "sex_male": -0.057077788098952274
+    "intercept": 7.386337131910964,
+    "region_northwest": -0.05787437872557256,
+    "region_southeast": -0.14163713213106582,
+    "region_southwest": -0.1454820378639959,
+    "age": 0.028637937731614188,
+    "bmi": 0.014123669239488476,
+    "children": 0.08417222070394666,
+    "smoker_yes": 1.5003301772030824,
+    "sex_male": -0.057077788098953086
   },
   "fit_stats": {
-    "mae": 4389.00931521813,
-    "rmse": 7770.692644560262,
-    "pseudo_r2": 0.5879451055751593,
+    "mae": 4389.009315218007,
+    "rmse": 7770.692644560175,
+    "pseudo_r2": 0.5879451055751685,
     "n": 1338
   },
   "lift_chart": [
     {
       "decile": 1,
       "actual_mean": 3084.379983251852,
-      "predicted_mean": 3749.0327612562282,
+      "predicted_mean": 3749.032761256146,
       "n": 135
     },
     {
       "decile": 2,
       "actual_mean": 4726.235464285714,
-      "predicted_mean": 4653.404508153425,
+      "predicted_mean": 4653.404508153307,
       "n": 133
     },
     {
       "decile": 3,
       "actual_mean": 5771.694557910448,
-      "predicted_mean": 5803.690864651162,
+      "predicted_mean": 5803.690864651025,
       "n": 134
     },
     {
       "decile": 4,
       "actual_mean": 6936.010584135339,
-      "predicted_mean": 7087.4696371219625,
+      "predicted_mean": 7087.469637121811,
       "n": 133
     },
     {
       "decile": 5,
       "actual_mean": 8696.497651940299,
-      "predicted_mean": 8546.12329884422,
+      "predicted_mean": 8546.123298844055,
       "n": 134
     },
     {
       "decile": 6,
       "actual_mean": 11162.952300522387,
-      "predicted_mean": 10063.765359481016,
+      "predicted_mean": 10063.76535948082,
       "n": 134
     },
     {
       "decile": 7,
       "actual_mean": 12541.401113984963,
-      "predicted_mean": 11823.49085507562,
+      "predicted_mean": 11823.490855075408,
       "n": 133
     },
     {
       "decile": 8,
       "actual_mean": 15459.186128134328,
-      "predicted_mean": 14436.283611045514,
+      "predicted_mean": 14436.283611045223,
       "n": 134
     },
     {
       "decile": 9,
       "actual_mean": 27886.282929253728,
-      "predicted_mean": 23827.19195484232,
+      "predicted_mean": 23827.19195484182,
       "n": 134
     },
     {
       "decile": 10,
       "actual_mean": 36399.12240552239,
-      "predicted_mean": 48930.906203019076,
+      "predicted_mean": 48930.906203018254,
       "n": 134
     }
   ],
